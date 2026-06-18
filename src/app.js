@@ -18,4 +18,14 @@ app.use(express.urlencoded({
 }))
 app.use(express.stati("public")) // when we want to store pdf , files i nour server ,these are public assets
 
+
+//routes (segregation of files)
+import userRouter from "./routes/user.routes.js ";
+
+//routes declaration
+//app.get ki jagah app.use bcz middlewar to get router
+app.use("/api/v1/users",userRouter )
+
+
+
 export {app} 
