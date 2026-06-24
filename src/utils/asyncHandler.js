@@ -7,7 +7,7 @@ const asyncHandler = (requestHandler) =>{
     }
 }
 
-//type 2
+// type 2
 // const asyncHandler = (fn) => async (req,res,next) =>{ // higher order fxns 
 //     try {
 //         await fn(req,res,next)
