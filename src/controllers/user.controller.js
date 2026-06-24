@@ -4,6 +4,21 @@ import {User} from "../models/user.models.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 
+//yeh ek method hai jo access token aur refresh token generate krta hai aur user ke refresh token ko update krta hai
+const generateAccessAndRefreshToken = async (userId)=>{
+    try {
+        const user = await User.findById(userId)
+        const accessToken = await user.generateAccessToken();
+        const refreshToken = await user.generateRefreshToken();
+        user.refreshToken = refreshToken;
+        await user.save({validateBeforeSave:false}); // sidha save krdo , validation mat kro varna wo password wagra ko bhi dekhta hai
+        return {accessToken,refreshToken};
+    } catch (error) {
+        throw new ApiError(500,"Error while generating access and refresh token");
+    }
+}
+
+
 const registerUser = asyncHandler(async (req, res) => {
     console.log("Request Body:", req.body);
     console.log("Request Files:", req.files);
@@ -64,8 +79,79 @@ const registerUser = asyncHandler(async (req, res) => {
     )
 }); 
 
+const loginUser =asyncHandler(async (req,res)=>{
+    //req body me email,username and password aayega
+    //find the user by username or email
+    //password check
+    //access and refrehs token generate and send to user
+    //send response to user via secure cookies 
+    const {username,password,email} =req.body;
+    if(!username || !email){
+        throw new ApiError(400,"username or email is required")
+    }
+    if(!password){
+        throw new ApiError(400,"password is required")
+    }
+    const user = await User.findOne({
+        // $or is mongodb operator jo username ya email me se kisi ek ko match krne ke liye use hota hai  
+        $or:[{username: username.toLowerCase()}, {email : email.toLowerCase()}]
+    })
+    if(!user){
+        throw new ApiError(404,"user not found ie does not exist");
+    }
+    //password comparison ke lie bcrypt ka compare method use hota hai jo hashed password ko compare krta hai
+    const isPasswordValid= await user.isPasswordCorrect(password) //ye method user model me define kiya hai
+
+    if(!isPasswordValid){
+        throw new ApiError(401,"Invalid password");
+    }
+    const {accessToken,refreshToken}= await generateAccessAndRefreshToken(user._id);
+
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken") //ye user ko dobara find kr rha hai bcz password ko hide krne ke liye
+
+    //sending cookies now from here
+    const options ={
+        httpOnly :true,
+        secure :true
+    }
+    return res
+    .status(200)
+    .cookie("access token ", accessToken,options)
+    .cookie("refresh token", refreshToken,options)
+    .json(
+        new ApiRespone(200,
+            {
+                user:loggedInUser,
+                accessToken,
+                refreshToken
+            },
+            "User logged in successfully"
+        )
+    )
+});
+
+const logoutUser= asyncHandler(async(req,res) =>{
+    //yahan req.user me user ki details aa rhi hai bcz verifyJWT middleware me req.user me user ki details set kiya tha
+    // 1.) refresh token db se gayab
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{refreshToken :null}
+        },
+        {
+            new:true
+        }
+    )
+    // 2.) cookies ko clear krna
+    const options ={
+        httpOnly :true,
+        secure :true
+    }
+    return res.status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json(new ApiResponse(200,{},"User logged out successfully"))
+})
 
 
-
-
-export { registerUser };
+export { registerUser,loginUser,logoutUser};
