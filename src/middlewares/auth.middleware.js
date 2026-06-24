@@ -1,4 +1,4 @@
-import asyncHandler from "../utils/asyncHandler.js";
+import {asyncHandler} from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 import { ApiError } from "../utils/ApiErrorHandle.js";
 import {User} from "../models/user.models.js"
@@ -9,7 +9,7 @@ export const verifyJWT= asyncHandler(async(req,_,next)=>{ // when res ka use nhi
     //now cookies access krne ke liye hume cookie parser middleware use krna padega else header se nikal lo token
     // Authorisation : Bearer <token>
     try{
-        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer","")
+        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ","")
         if(!token){
             throw new ApiError(401,"Unauthorized access, token not found")
         }
@@ -20,6 +20,7 @@ export const verifyJWT= asyncHandler(async(req,_,next)=>{ // when res ka use nhi
         const user = await User.findById(decodedToken?._id).select("-password -refreshToken") 
         if(!user) {
             // TODO :discuss for frontend
+            //discussing now
             throw new ApiError(401,"Unauthorized access, user not found")
         }
 
@@ -31,5 +32,3 @@ export const verifyJWT= asyncHandler(async(req,_,next)=>{ // when res ka use nhi
 
     
 })
-
-export {verifyJWT}
